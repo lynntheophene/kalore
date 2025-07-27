@@ -87,29 +87,35 @@ export default function CameraScreen() {
     }
 
     setLoading(true);
-    
+
     try {
-      let foodItemId = selectedFood.id;
-      
-      // Check if this is an AI-generated food item that needs to be saved to the database first
-      if (selectedFood.id.startsWith('gemini_') || selectedFood.id.startsWith('search_') || selectedFood.id.startsWith('fallback_')) {
-        // First, check if a similar food item already exists in the database
+      let foodItemId: string | null = null;
+
+      // If the selected food is not yet in the DB (AI/search-generated, etc.)
+      if (
+        selectedFood.id.startsWith('gemini_') ||
+        selectedFood.id.startsWith('search_') ||
+        selectedFood.id.startsWith('fallback_')
+      ) {
+        // Try to find an existing food item with the same name and calories
         const { data: existingFood, error: searchError } = await supabase
           .from('food_items')
           .select('id')
           .eq('name', selectedFood.name)
           .eq('calories_per_100g', selectedFood.calories_per_100g)
-          .single();
+          .maybeSingle();
 
-        if (searchError && searchError.code !== 'PGRST116') { // PGRST116 is "not found" error
+        if (searchError && searchError.code !== 'PGRST116') {
           console.error('Error searching for existing food:', searchError);
+          Alert.alert('Error', 'Failed to search for food in database');
+          setLoading(false);
+          return;
         }
 
-        if (existingFood) {
-          // Use the existing food item
+        if (existingFood && existingFood.id) {
           foodItemId = existingFood.id;
         } else {
-          // Insert the food item into the database
+          // Insert new food item
           const { data: insertedFood, error: foodError } = await supabase
             .from('food_items')
             .insert({
@@ -126,7 +132,7 @@ export default function CameraScreen() {
             .select()
             .single();
 
-          if (foodError) {
+          if (foodError || !insertedFood) {
             console.error('Error inserting food item:', foodError);
             Alert.alert('Error', 'Failed to save food item to database');
             setLoading(false);
@@ -135,9 +141,19 @@ export default function CameraScreen() {
 
           foodItemId = insertedFood.id;
         }
+      } else {
+        // If already a UUID from your DB, just use it
+        foodItemId = selectedFood.id;
       }
 
-      // Now insert the food entry
+      // Make sure the id is a UUID (basic validation)
+      if (!foodItemId || foodItemId.length < 36) {
+        Alert.alert('Error', 'Invalid food item UUID');
+        setLoading(false);
+        return;
+      }
+
+      // Insert the food entry
       const { error: entryError } = await supabase
         .from('food_entries')
         .insert({
