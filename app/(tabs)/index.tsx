@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { FoodEntry } from '@/types/database';
-import { Plus, TrendingUp, Target, Clock } from 'lucide-react-native';
+import { TrendingUp, Target, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function DashboardScreen() {
@@ -121,7 +121,7 @@ export default function DashboardScreen() {
           
           <Button
             title="Add Manually"
-            onPress={() => router.push('/(tabs)/camera')}
+            onPress={() => router.push('/(tabs)/manual-entry')}
             variant="outline"
             size="large"
             style={styles.manualButton}
@@ -131,7 +131,7 @@ export default function DashboardScreen() {
         <Card>
           <View style={styles.sectionHeader}>
             <Clock size={20} color="#374151" />
-            <Text style={styles.sectionTitle}>Today's Meals</Text>
+            <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
           </View>
           
           {todaysEntries.length > 0 ? (

@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Chrome as Home, Camera, History, User } from 'lucide-react-native';
+import { Chrome as Home, Camera, History, User, PlusCircle } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -37,6 +37,15 @@ export default function TabLayout() {
           title: 'Scan Food',
           tabBarIcon: ({ size, color }) => (
             <Camera size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="manual-entry"
+        options={{
+          title: 'Add Manual',
+          tabBarIcon: ({ size, color }) => (
+            <PlusCircle size={size} color={color} />
           ),
         }}
       />
