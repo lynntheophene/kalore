@@ -11,6 +11,12 @@ import Card from '@/components/ui/Card';
 import { Camera, Image as ImageIcon, Search, Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+// Helper function to check if a string is a valid UUID
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
 export default function CameraScreen() {
   const { user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
@@ -91,12 +97,14 @@ export default function CameraScreen() {
     try {
       let foodItemId: string | null = null;
 
-      // If the selected food is not yet in the DB (AI/search-generated, etc.)
-      if (
-        selectedFood.id.startsWith('gemini_') ||
-        selectedFood.id.startsWith('search_') ||
-        selectedFood.id.startsWith('fallback_')
-      ) {
+      // Check if the selected food ID is already a valid UUID from the database
+      if (isValidUUID(selectedFood.id)) {
+        // It's already a valid UUID, use it directly
+        foodItemId = selectedFood.id;
+      } else {
+        // It's not a valid UUID, so it's AI-generated and needs to be saved to the database
+        console.log('Processing AI-generated food item:', selectedFood.id);
+        
         // Try to find an existing food item with the same name and calories
         const { data: existingFood, error: searchError } = await supabase
           .from('food_items')
@@ -113,8 +121,10 @@ export default function CameraScreen() {
         }
 
         if (existingFood && existingFood.id) {
+          console.log('Found existing food item with UUID:', existingFood.id);
           foodItemId = existingFood.id;
         } else {
+          console.log('Creating new food item in database...');
           // Insert new food item
           const { data: insertedFood, error: foodError } = await supabase
             .from('food_items')
@@ -139,19 +149,20 @@ export default function CameraScreen() {
             return;
           }
 
+          console.log('Created new food item with UUID:', insertedFood.id);
           foodItemId = insertedFood.id;
         }
-      } else {
-        // If already a UUID from your DB, just use it
-        foodItemId = selectedFood.id;
       }
 
-      // Make sure the id is a UUID (basic validation)
-      if (!foodItemId || foodItemId.length < 36) {
-        Alert.alert('Error', 'Invalid food item UUID');
+      // Final validation - make sure we have a valid UUID
+      if (!foodItemId || !isValidUUID(foodItemId)) {
+        console.error('Invalid foodItemId:', foodItemId);
+        Alert.alert('Error', 'Failed to get valid food item ID');
         setLoading(false);
         return;
       }
+
+      console.log('Logging food entry with UUID:', foodItemId);
 
       // Insert the food entry
       const { error: entryError } = await supabase
