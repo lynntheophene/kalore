@@ -4,7 +4,7 @@ const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY || '
 
 export interface FoodRecognitionResult {
   confidence: number;
-  suggestions: Array<{
+  suggestions: {
     id: string;
     name: string;
     calories_per_100g: number;
@@ -15,7 +15,7 @@ export interface FoodRecognitionResult {
     sugar_per_100g?: number;
     category: string;
     brand?: string;
-  }>;
+  }[];
 }
 
 export const recognizeFoodFromImage = async (imageUri: string): Promise<FoodRecognitionResult> => {
