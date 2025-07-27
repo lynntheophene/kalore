@@ -98,12 +98,13 @@ export default function CameraScreen() {
       let foodItemId: string | null = null;
 
       // Check if the selected food ID is already a valid UUID from the database
-      if (isValidUUID(selectedFood.id)) {
-        // It's already a valid UUID, use it directly
+      // Only trust UUIDs that come from actual database queries, not AI-generated ones
+      if (isValidUUID(selectedFood.id) && !selectedFood.id.startsWith('gemini_') && !selectedFood.id.startsWith('search_') && !selectedFood.id.startsWith('fallback_')) {
+        // It's a valid UUID from the database, use it directly
         foodItemId = selectedFood.id;
       } else {
-        // It's not a valid UUID, so it's AI-generated and needs to be saved to the database
-        console.log('Processing AI-generated food item:', selectedFood.id);
+        // It's not a valid database UUID, so it's AI-generated and needs to be saved to the database
+        console.log('Processing AI-generated food item:', selectedFood.id, 'Name:', selectedFood.name);
         
         // Try to find an existing food item with the same name and calories
         const { data: existingFood, error: searchError } = await supabase
@@ -156,8 +157,8 @@ export default function CameraScreen() {
 
       // Final validation - make sure we have a valid UUID
       if (!foodItemId || !isValidUUID(foodItemId)) {
-        console.error('Invalid foodItemId:', foodItemId);
-        Alert.alert('Error', 'Failed to get valid food item ID');
+        console.error('Invalid foodItemId after processing:', foodItemId, 'Selected food:', selectedFood.id);
+        Alert.alert('Error', 'Failed to get valid food item ID. Please try selecting the food again.');
         setLoading(false);
         return;
       }

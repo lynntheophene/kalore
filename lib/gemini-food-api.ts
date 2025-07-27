@@ -90,7 +90,8 @@ export const recognizeFoodFromImage = async (imageUri: string): Promise<FoodReco
     
     // Add unique IDs if missing and ensure all required fields are present
     parsedResult.suggestions = parsedResult.suggestions.map((item: any, index: number) => ({
-      id: item.id || `gemini_${Date.now()}_${index}`,
+      // Always generate our own IDs for AI suggestions to avoid UUID conflicts
+      id: `gemini_${Date.now()}_${index}`,
       name: item.name || 'Unknown Food',
       calories_per_100g: Number(item.calories_per_100g) || 100,
       protein_per_100g: Number(item.protein_per_100g) || 5,
@@ -178,7 +179,8 @@ export const searchFoodWithGemini = async (query: string) => {
     
     // Add unique IDs if missing and ensure all required fields are present
     return parsedResults.map((item: any, index: number) => ({
-      id: item.id || `search_${Date.now()}_${index}`,
+      // Always generate our own IDs for AI search results to avoid UUID conflicts
+      id: `search_${Date.now()}_${index}`,
       name: item.name || 'Unknown Food',
       calories_per_100g: Number(item.calories_per_100g) || 100,
       protein_per_100g: Number(item.protein_per_100g) || 5,
