@@ -58,61 +58,11 @@ EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key
 ### 2. Supabase Setup
 
 1. Create a new Supabase project
-2. Run the following SQL to create the required tables:
+2. Set up the database schema by running the SQL files in the `database/` directory:
+   - Copy and paste the contents of `database/schema.sql` into your Supabase SQL Editor and run it
+   - Optionally, run `database/sample_data.sql` to add sample food items for development
 
-```sql
--- Users table (handled by Supabase Auth)
-
--- Food items table
-CREATE TABLE food_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  calories_per_100g DECIMAL NOT NULL,
-  protein_per_100g DECIMAL NOT NULL,
-  carbs_per_100g DECIMAL NOT NULL,
-  fat_per_100g DECIMAL NOT NULL,
-  fiber_per_100g DECIMAL,
-  sugar_per_100g DECIMAL,
-  category TEXT NOT NULL,
-  brand TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Food entries table
-CREATE TABLE food_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  food_item_id UUID REFERENCES food_items(id),
-  quantity INTEGER NOT NULL, -- in grams
-  meal_type TEXT CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
-  logged_at TIMESTAMPTZ DEFAULT NOW(),
-  photo_url TEXT,
-  notes TEXT
-);
-
--- Daily goals table
-CREATE TABLE daily_goals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  daily_calories INTEGER NOT NULL,
-  daily_protein INTEGER NOT NULL,
-  daily_carbs INTEGER NOT NULL,
-  daily_fat INTEGER NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id)
-);
-
--- Enable Row Level Security
-ALTER TABLE food_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE food_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_goals ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Food items are viewable by everyone" ON food_items FOR SELECT USING (true);
-CREATE POLICY "Users can view own food entries" ON food_entries FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own goals" ON daily_goals FOR ALL USING (auth.uid() = user_id);
-```
+For detailed instructions, see the [Database Setup Guide](./database/README.md).
 
 ### 3. Gemini API Setup
 
