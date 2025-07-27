@@ -86,28 +86,87 @@ export default function CameraScreen() {
       return;
     }
 
-    const { error } = await supabase
-      .from('food_entries')
-      .insert({
-        user_id: user.id,
-        food_item_id: selectedFood.id,
-        quantity: parseInt(quantity),
-        meal_type: mealType,
-        logged_at: new Date().toISOString(),
-        photo_url: capturedImage,
-      });
+    setLoading(true);
+    
+    try {
+      let foodItemId = selectedFood.id;
+      
+      // Check if this is an AI-generated food item that needs to be saved to the database first
+      if (selectedFood.id.startsWith('gemini_') || selectedFood.id.startsWith('search_') || selectedFood.id.startsWith('fallback_')) {
+        // First, check if a similar food item already exists in the database
+        const { data: existingFood, error: searchError } = await supabase
+          .from('food_items')
+          .select('id')
+          .eq('name', selectedFood.name)
+          .eq('calories_per_100g', selectedFood.calories_per_100g)
+          .single();
 
-    if (error) {
-      Alert.alert('Error', 'Failed to log food entry');
-    } else {
-      Alert.alert('Success', 'Food logged successfully!');
-      // Reset state
-      setCapturedImage(null);
-      setRecognitionResult(null);
-      setSelectedFood(null);
-      setSearchQuery('');
-      setSearchResults([]);
-      setQuantity('100');
+        if (searchError && searchError.code !== 'PGRST116') { // PGRST116 is "not found" error
+          console.error('Error searching for existing food:', searchError);
+        }
+
+        if (existingFood) {
+          // Use the existing food item
+          foodItemId = existingFood.id;
+        } else {
+          // Insert the food item into the database
+          const { data: insertedFood, error: foodError } = await supabase
+            .from('food_items')
+            .insert({
+              name: selectedFood.name,
+              calories_per_100g: selectedFood.calories_per_100g,
+              protein_per_100g: selectedFood.protein_per_100g,
+              carbs_per_100g: selectedFood.carbs_per_100g,
+              fat_per_100g: selectedFood.fat_per_100g,
+              fiber_per_100g: selectedFood.fiber_per_100g || null,
+              sugar_per_100g: selectedFood.sugar_per_100g || null,
+              category: selectedFood.category,
+              brand: selectedFood.brand || null,
+            })
+            .select()
+            .single();
+
+          if (foodError) {
+            console.error('Error inserting food item:', foodError);
+            Alert.alert('Error', 'Failed to save food item to database');
+            setLoading(false);
+            return;
+          }
+
+          foodItemId = insertedFood.id;
+        }
+      }
+
+      // Now insert the food entry
+      const { error: entryError } = await supabase
+        .from('food_entries')
+        .insert({
+          user_id: user.id,
+          food_item_id: foodItemId,
+          quantity: parseInt(quantity),
+          meal_type: mealType,
+          logged_at: new Date().toISOString(),
+          photo_url: capturedImage,
+        });
+
+      if (entryError) {
+        console.error('Error inserting food entry:', entryError);
+        Alert.alert('Error', 'Failed to log food entry');
+      } else {
+        Alert.alert('Success', 'Food logged successfully!');
+        // Reset state
+        setCapturedImage(null);
+        setRecognitionResult(null);
+        setSelectedFood(null);
+        setSearchQuery('');
+        setSearchResults([]);
+        setQuantity('100');
+      }
+    } catch (error) {
+      console.error('Error logging food:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -285,10 +344,11 @@ export default function CameraScreen() {
             </View>
 
             <Button
-              title="Log Food Entry"
+              title={loading ? "Logging Food..." : "Log Food Entry"}
               onPress={logFood}
               variant="primary"
               size="large"
+              disabled={loading}
             />
           </Card>
         )}
