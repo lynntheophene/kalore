@@ -46,6 +46,7 @@ export default function ManualEntryScreen() {
       setShowCustomForm(false);
       setSelectedFood(null);
     } catch (error) {
+      console.error('Error searching food:', error);
       Alert.alert('Error', 'Failed to search food');
     }
     setIsSearching(false);

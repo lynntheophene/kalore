@@ -41,6 +41,7 @@ export default function CameraScreen() {
         analyzeImage(photo.uri);
       }
     } catch (error) {
+      console.error('Error taking picture:', error);
       Alert.alert('Error', 'Failed to take picture');
     }
   };
@@ -68,6 +69,7 @@ export default function CameraScreen() {
         setSelectedFood(result.suggestions[0]);
       }
     } catch (error) {
+      console.error('Error analyzing image:', error);
       Alert.alert('Error', 'Failed to analyze image');
     }
     setLoading(false);
@@ -81,6 +83,7 @@ export default function CameraScreen() {
       const results = await searchFoodWithGemini(searchQuery);
       setSearchResults(results);
     } catch (error) {
+      console.error('Error searching food:', error);
       Alert.alert('Error', 'Failed to search food');
     }
     setLoading(false);
