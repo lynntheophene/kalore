@@ -1,14 +1,12 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { recognizeFoodFromImage, searchFoodWithGemini } from '@/lib/gemini-food-api';
+import { searchFoodWithGemini } from '@/lib/gemini-food-api';
 import { supabase } from '@/lib/supabase';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
-import { Camera } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Helper function to check if a string is a valid UUID
@@ -17,73 +15,60 @@ const isValidUUID = (str: string): boolean => {
   return uuidRegex.test(str);
 };
 
-export default function CameraScreen() {
+export default function ManualEntryScreen() {
   const { user } = useAuth();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [recognitionResult, setRecognitionResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedFood, setSelectedFood] = useState<any>(null);
   const [quantity, setQuantity] = useState('100');
   const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('lunch');
-  const cameraRef = useRef<CameraView>(null);
+  const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const takePicture = async () => {
-    if (!cameraRef.current) return;
-
-    try {
-      const photo = await cameraRef.current.takePictureAsync();
-      if (photo) {
-        setCapturedImage(photo.uri);
-        analyzeImage(photo.uri);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to take picture');
-    }
-  };
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setCapturedImage(result.assets[0].uri);
-      analyzeImage(result.assets[0].uri);
-    }
-  };
-
-  const analyzeImage = async (imageUri: string) => {
-    setLoading(true);
-    try {
-      const result = await recognizeFoodFromImage(imageUri);
-      setRecognitionResult(result);
-      if (result.suggestions.length > 0) {
-        setSelectedFood(result.suggestions[0]);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to analyze image');
-    }
-    setLoading(false);
-  };
+  // Custom food entry fields
+  const [customFood, setCustomFood] = useState({
+    name: '',
+    calories_per_100g: '',
+    protein_per_100g: '',
+    carbs_per_100g: '',
+    fat_per_100g: '',
+    category: 'Unknown'
+  });
+  const [showCustomForm, setShowCustomForm] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
-    setLoading(true);
+    setIsSearching(true);
     try {
       const results = await searchFoodWithGemini(searchQuery);
       setSearchResults(results);
+      setShowCustomForm(false);
+      setSelectedFood(null);
     } catch (error) {
       Alert.alert('Error', 'Failed to search food');
     }
-    setLoading(false);
+    setIsSearching(false);
+  };
+
+  const handleCustomFoodSubmit = () => {
+    if (!customFood.name.trim() || !customFood.calories_per_100g) {
+      Alert.alert('Error', 'Please fill in at least the food name and calories');
+      return;
+    }
+
+    const newCustomFood = {
+      id: `custom_${Date.now()}`,
+      name: customFood.name,
+      calories_per_100g: parseFloat(customFood.calories_per_100g) || 0,
+      protein_per_100g: parseFloat(customFood.protein_per_100g) || 0,
+      carbs_per_100g: parseFloat(customFood.carbs_per_100g) || 0,
+      fat_per_100g: parseFloat(customFood.fat_per_100g) || 0,
+      category: customFood.category
+    };
+
+    setSelectedFood(newCustomFood);
+    setShowCustomForm(false);
   };
 
   const logFood = async () => {
@@ -98,13 +83,12 @@ export default function CameraScreen() {
       let foodItemId: string | null = null;
 
       // Check if the selected food ID is already a valid UUID from the database
-      // Only trust UUIDs that come from actual database queries, not AI-generated ones
-      if (isValidUUID(selectedFood.id) && !selectedFood.id.startsWith('gemini_') && !selectedFood.id.startsWith('search_') && !selectedFood.id.startsWith('fallback_')) {
+      if (isValidUUID(selectedFood.id) && !selectedFood.id.startsWith('gemini_') && !selectedFood.id.startsWith('search_') && !selectedFood.id.startsWith('custom_')) {
         // It's a valid UUID from the database, use it directly
         foodItemId = selectedFood.id;
       } else {
-        // It's not a valid database UUID, so it's AI-generated and needs to be saved to the database
-        console.log('Processing AI-generated food item:', selectedFood.id, 'Name:', selectedFood.name);
+        // It's AI-generated or custom, so it needs to be saved to the database
+        console.log('Processing non-database food item:', selectedFood.id, 'Name:', selectedFood.name);
         
         // Try to find an existing food item with the same name and calories
         const { data: existingFood, error: searchError } = await supabase
@@ -174,7 +158,6 @@ export default function CameraScreen() {
           quantity: parseInt(quantity),
           meal_type: mealType,
           logged_at: new Date().toISOString(),
-          photo_url: capturedImage,
         });
 
       if (entryError) {
@@ -183,12 +166,19 @@ export default function CameraScreen() {
       } else {
         Alert.alert('Success', 'Food logged successfully!');
         // Reset state
-        setCapturedImage(null);
-        setRecognitionResult(null);
         setSelectedFood(null);
         setSearchQuery('');
         setSearchResults([]);
         setQuantity('100');
+        setCustomFood({
+          name: '',
+          calories_per_100g: '',
+          protein_per_100g: '',
+          carbs_per_100g: '',
+          fat_per_100g: '',
+          category: 'Unknown'
+        });
+        setShowCustomForm(false);
       }
     } catch (error) {
       console.error('Error logging food:', error);
@@ -198,119 +188,38 @@ export default function CameraScreen() {
     }
   };
 
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
-
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Camera size={64} color="#6B7280" />
-        <Text style={styles.permissionTitle}>Camera Access Required</Text>
-        <Text style={styles.permissionText}>
-          We need camera access to help you scan and identify food items for accurate calorie tracking.
-        </Text>
-        <Button title="Grant Permission" onPress={requestPermission} />
-      </View>
-    );
-  }
-
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={['#2563EB', '#1D4ED8']}
+        colors={['#059669', '#047857']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Scan Food</Text>
-        <Text style={styles.headerSubtitle}>Capture or search for food items</Text>
+        <Text style={styles.headerTitle}>Add Food Manually</Text>
+        <Text style={styles.headerSubtitle}>Search or create custom food entries</Text>
       </LinearGradient>
 
       <View style={styles.content}>
-        {!capturedImage ? (
-          <Card>
-            <View style={styles.cameraContainer}>
-              <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-                <View style={styles.cameraOverlay}>
-                  <View style={styles.cameraButtons}>
-                    <TouchableOpacity style={styles.cameraButton} onPress={takePicture}>
-                      <View style={styles.captureButton} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </CameraView>
-            </View>
-            
-            <View style={styles.imageActions}>
-              <Button
-                title="Choose from Gallery"
-                onPress={pickImage}
-                variant="outline"
-                style={styles.galleryButton}
-              />
-            </View>
-          </Card>
-        ) : (
-          <Card>
-            <Image source={{ uri: capturedImage }} style={styles.capturedImage} />
-            
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Analyzing image with AI...</Text>
-              </View>
-            ) : recognitionResult ? (
-              <View style={styles.recognitionResults}>
-                <Text style={styles.resultsTitle}>
-                  AI Food Recognition (Confidence: {Math.round(recognitionResult.confidence * 100)}%)
-                </Text>
-                {recognitionResult.suggestions.map((food: any, index: number) => (
-                  <TouchableOpacity
-                    key={food.id}
-                    style={[
-                      styles.foodSuggestion,
-                      selectedFood?.id === food.id && styles.selectedFood
-                    ]}
-                    onPress={() => setSelectedFood(food)}
-                  >
-                    <Text style={styles.foodName}>{food.name}</Text>
-                    <Text style={styles.foodCalories}>{food.calories_per_100g} cal/100g</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-            
-            <Button
-              title="Retake Photo"
-              onPress={() => {
-                setCapturedImage(null);
-                setRecognitionResult(null);
-                setSelectedFood(null);
-              }}
-              variant="outline"
-              style={styles.retakeButton}
-            />
-          </Card>
-        )}
-
         <Card>
-          <Text style={styles.sectionTitle}>AI-Powered Food Search</Text>
+          <Text style={styles.sectionTitle}>Search Food Database</Text>
           <View style={styles.searchContainer}>
             <Input
-              placeholder="Describe any food item..."
+              placeholder="Search for any food item..."
               value={searchQuery}
               onChangeText={setSearchQuery}
               style={styles.searchInput}
             />
             <Button
-              title="AI Search"
+              title="Search"
               onPress={handleSearch}
               variant="primary"
               size="small"
-              disabled={loading}
+              disabled={isSearching}
             />
           </View>
 
           {searchResults.length > 0 && (
             <View style={styles.searchResults}>
+              <Text style={styles.resultsTitle}>Search Results</Text>
               {searchResults.map((food) => (
                 <TouchableOpacity
                   key={food.id}
@@ -322,8 +231,81 @@ export default function CameraScreen() {
                 >
                   <Text style={styles.foodName}>{food.name}</Text>
                   <Text style={styles.foodCalories}>{food.calories_per_100g} cal/100g</Text>
+                  <Text style={styles.foodCategory}>{food.category}</Text>
                 </TouchableOpacity>
               ))}
+            </View>
+          )}
+        </Card>
+
+        <Card>
+          <View style={styles.customHeader}>
+            <Text style={styles.sectionTitle}>Custom Food Entry</Text>
+            <TouchableOpacity
+              style={styles.addCustomButton}
+              onPress={() => {
+                setShowCustomForm(!showCustomForm);
+                setSearchResults([]);
+                setSelectedFood(null);
+              }}
+            >
+              <Plus size={16} color="#2563EB" />
+              <Text style={styles.addCustomText}>Add Custom</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showCustomForm && (
+            <View style={styles.customForm}>
+              <Input
+                label="Food Name *"
+                value={customFood.name}
+                onChangeText={(text) => setCustomFood(prev => ({ ...prev, name: text }))}
+                placeholder="e.g., Homemade Pasta"
+              />
+              
+              <Input
+                label="Calories per 100g *"
+                value={customFood.calories_per_100g}
+                onChangeText={(text) => setCustomFood(prev => ({ ...prev, calories_per_100g: text }))}
+                keyboardType="numeric"
+                placeholder="250"
+              />
+              
+              <View style={styles.macroRow}>
+                <Input
+                  label="Protein (g)"
+                  value={customFood.protein_per_100g}
+                  onChangeText={(text) => setCustomFood(prev => ({ ...prev, protein_per_100g: text }))}
+                  keyboardType="numeric"
+                  placeholder="15"
+                  style={styles.macroInput}
+                />
+                
+                <Input
+                  label="Carbs (g)"
+                  value={customFood.carbs_per_100g}
+                  onChangeText={(text) => setCustomFood(prev => ({ ...prev, carbs_per_100g: text }))}
+                  keyboardType="numeric"
+                  placeholder="30"
+                  style={styles.macroInput}
+                />
+                
+                <Input
+                  label="Fat (g)"
+                  value={customFood.fat_per_100g}
+                  onChangeText={(text) => setCustomFood(prev => ({ ...prev, fat_per_100g: text }))}
+                  keyboardType="numeric"
+                  placeholder="8"
+                  style={styles.macroInput}
+                />
+              </View>
+
+              <Button
+                title="Use Custom Food"
+                onPress={handleCustomFoodSubmit}
+                variant="outline"
+                style={styles.useCustomButton}
+              />
             </View>
           )}
         </Card>
@@ -331,6 +313,13 @@ export default function CameraScreen() {
         {selectedFood && (
           <Card>
             <Text style={styles.sectionTitle}>Log Food Entry</Text>
+            
+            <View style={styles.selectedFoodInfo}>
+              <Text style={styles.selectedFoodName}>{selectedFood.name}</Text>
+              <Text style={styles.selectedFoodNutrition}>
+                {selectedFood.calories_per_100g} cal, {selectedFood.protein_per_100g}g protein per 100g
+              </Text>
+            </View>
             
             <Input
               label="Quantity (grams)"
@@ -368,6 +357,12 @@ export default function CameraScreen() {
               </Text>
               <Text style={styles.nutritionText}>
                 Protein: {Math.round((selectedFood.protein_per_100g * parseInt(quantity || '0')) / 100)}g
+              </Text>
+              <Text style={styles.nutritionText}>
+                Carbs: {Math.round((selectedFood.carbs_per_100g * parseInt(quantity || '0')) / 100)}g
+              </Text>
+              <Text style={styles.nutritionText}>
+                Fat: {Math.round((selectedFood.fat_per_100g * parseInt(quantity || '0')) / 100)}g
               </Text>
             </View>
 
@@ -409,80 +404,24 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
   },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#F9FAFB',
-  },
-  permissionTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter-Bold',
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
     color: '#111827',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  permissionText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  cameraContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
     marginBottom: 16,
   },
-  camera: {
-    height: 300,
-  },
-  cameraOverlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'flex-end',
-  },
-  cameraButtons: {
-    alignItems: 'center',
-    paddingBottom: 24,
-  },
-  cameraButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButton: {
-    width: 70,
-    height: 70,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 35,
-    borderWidth: 4,
-    borderColor: '#2563EB',
-  },
-  imageActions: {
+  searchContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    gap: 12,
+    alignItems: 'flex-end',
+    marginBottom: 16,
   },
-  galleryButton: {
+  searchInput: {
     flex: 1,
+    marginBottom: 0,
   },
-  capturedImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-  },
-  recognitionResults: {
-    marginBottom: 16,
+  searchResults: {
+    marginTop: 8,
   },
   resultsTitle: {
     fontSize: 16,
@@ -511,27 +450,62 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
   },
-  retakeButton: {
+  foodCategory: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  customHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addCustomButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#2563EB',
+    borderRadius: 6,
+  },
+  addCustomText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#2563EB',
+    marginLeft: 4,
+  },
+  customForm: {
     marginTop: 8,
   },
-  sectionTitle: {
+  macroRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  macroInput: {
+    flex: 1,
+  },
+  useCustomButton: {
+    marginTop: 8,
+  },
+  selectedFoodInfo: {
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  selectedFoodName: {
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: 4,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-end',
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  searchResults: {
-    marginTop: 8,
+  selectedFoodNutrition: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
   },
   inputLabel: {
     fontSize: 14,
