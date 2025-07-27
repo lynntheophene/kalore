@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
-import { Camera } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Search, Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Helper function to check if a string is a valid UUID
@@ -29,6 +29,7 @@ export default function CameraScreen() {
   const [selectedFood, setSelectedFood] = useState<any>(null);
   const [quantity, setQuantity] = useState('100');
   const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('lunch');
+  const [showCamera, setShowCamera] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   const takePicture = async () => {
@@ -38,10 +39,10 @@ export default function CameraScreen() {
       const photo = await cameraRef.current.takePictureAsync();
       if (photo) {
         setCapturedImage(photo.uri);
+        setShowCamera(false);
         analyzeImage(photo.uri);
       }
     } catch (error) {
-      console.error('Error taking picture:', error);
       Alert.alert('Error', 'Failed to take picture');
     }
   };
@@ -60,6 +61,19 @@ export default function CameraScreen() {
     }
   };
 
+  const requestCameraAccess = async () => {
+    if (!permission) return;
+    
+    if (!permission.granted) {
+      const result = await requestPermission();
+      if (result.granted) {
+        setShowCamera(true);
+      }
+    } else {
+      setShowCamera(true);
+    }
+  };
+
   const analyzeImage = async (imageUri: string) => {
     setLoading(true);
     try {
@@ -69,7 +83,6 @@ export default function CameraScreen() {
         setSelectedFood(result.suggestions[0]);
       }
     } catch (error) {
-      console.error('Error analyzing image:', error);
       Alert.alert('Error', 'Failed to analyze image');
     }
     setLoading(false);
@@ -83,7 +96,6 @@ export default function CameraScreen() {
       const results = await searchFoodWithGemini(searchQuery);
       setSearchResults(results);
     } catch (error) {
-      console.error('Error searching food:', error);
       Alert.alert('Error', 'Failed to search food');
     }
     setLoading(false);
@@ -202,18 +214,19 @@ export default function CameraScreen() {
   };
 
   if (!permission) {
-    return <View style={styles.container} />;
-  }
-
-  if (!permission.granted) {
+    // Loading state while checking permissions
     return (
-      <View style={styles.permissionContainer}>
-        <Camera size={64} color="#6B7280" />
-        <Text style={styles.permissionTitle}>Camera Access Required</Text>
-        <Text style={styles.permissionText}>
-          We need camera access to help you scan and identify food items for accurate calorie tracking.
-        </Text>
-        <Button title="Grant Permission" onPress={requestPermission} />
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#2563EB', '#1D4ED8']}
+          style={styles.header}
+        >
+          <Text style={styles.headerTitle}>Add Food</Text>
+          <Text style={styles.headerSubtitle}>Search for food items or scan with camera</Text>
+        </LinearGradient>
+        <View style={styles.content}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
       </View>
     );
   }
@@ -224,76 +237,12 @@ export default function CameraScreen() {
         colors={['#2563EB', '#1D4ED8']}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Scan Food</Text>
-        <Text style={styles.headerSubtitle}>Capture or search for food items</Text>
+        <Text style={styles.headerTitle}>Add Food</Text>
+        <Text style={styles.headerSubtitle}>Search for food items or scan with camera</Text>
       </LinearGradient>
 
       <View style={styles.content}>
-        {!capturedImage ? (
-          <Card>
-            <View style={styles.cameraContainer}>
-              <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-                <View style={styles.cameraOverlay}>
-                  <View style={styles.cameraButtons}>
-                    <TouchableOpacity style={styles.cameraButton} onPress={takePicture}>
-                      <View style={styles.captureButton} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </CameraView>
-            </View>
-            
-            <View style={styles.imageActions}>
-              <Button
-                title="Choose from Gallery"
-                onPress={pickImage}
-                variant="outline"
-                style={styles.galleryButton}
-              />
-            </View>
-          </Card>
-        ) : (
-          <Card>
-            <Image source={{ uri: capturedImage }} style={styles.capturedImage} />
-            
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Analyzing image with AI...</Text>
-              </View>
-            ) : recognitionResult ? (
-              <View style={styles.recognitionResults}>
-                <Text style={styles.resultsTitle}>
-                  AI Food Recognition (Confidence: {Math.round(recognitionResult.confidence * 100)}%)
-                </Text>
-                {recognitionResult.suggestions.map((food: any, index: number) => (
-                  <TouchableOpacity
-                    key={food.id}
-                    style={[
-                      styles.foodSuggestion,
-                      selectedFood?.id === food.id && styles.selectedFood
-                    ]}
-                    onPress={() => setSelectedFood(food)}
-                  >
-                    <Text style={styles.foodName}>{food.name}</Text>
-                    <Text style={styles.foodCalories}>{food.calories_per_100g} cal/100g</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-            
-            <Button
-              title="Retake Photo"
-              onPress={() => {
-                setCapturedImage(null);
-                setRecognitionResult(null);
-                setSelectedFood(null);
-              }}
-              variant="outline"
-              style={styles.retakeButton}
-            />
-          </Card>
-        )}
-
+        {/* AI-Powered Food Search - Always available */}
         <Card>
           <Text style={styles.sectionTitle}>AI-Powered Food Search</Text>
           <View style={styles.searchContainer}>
@@ -329,6 +278,92 @@ export default function CameraScreen() {
               ))}
             </View>
           )}
+        </Card>
+
+        {/* Camera Section - Requires permission */}
+        <Card>
+          <Text style={styles.sectionTitle}>Camera Food Scanner</Text>
+          {!showCamera && !capturedImage ? (
+            <View style={styles.cameraPrompt}>
+              <Camera size={48} color="#6B7280" style={styles.cameraIcon} />
+              <Text style={styles.cameraPromptTitle}>Scan Food with Camera</Text>
+              <Text style={styles.cameraPromptText}>
+                Use AI to identify food items from photos for accurate nutritional data
+              </Text>
+              <View style={styles.cameraActions}>
+                <Button
+                  title="Open Camera"
+                  onPress={requestCameraAccess}
+                  variant="primary"
+                  style={styles.cameraActionButton}
+                />
+                <Button
+                  title="Choose from Gallery"
+                  onPress={pickImage}
+                  variant="outline"
+                  style={styles.cameraActionButton}
+                />
+              </View>
+            </View>
+          ) : showCamera && permission?.granted ? (
+            <View style={styles.cameraContainer}>
+              <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+                <View style={styles.cameraOverlay}>
+                  <View style={styles.cameraButtons}>
+                    <TouchableOpacity style={styles.cameraButton} onPress={takePicture}>
+                      <View style={styles.captureButton} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </CameraView>
+              <Button
+                title="Cancel"
+                onPress={() => setShowCamera(false)}
+                variant="outline"
+                style={styles.cancelButton}
+              />
+            </View>
+          ) : capturedImage ? (
+            <View>
+              <Image source={{ uri: capturedImage }} style={styles.capturedImage} />
+              
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Analyzing image with AI...</Text>
+                </View>
+              ) : recognitionResult ? (
+                <View style={styles.recognitionResults}>
+                  <Text style={styles.resultsTitle}>
+                    AI Food Recognition (Confidence: {Math.round(recognitionResult.confidence * 100)}%)
+                  </Text>
+                  {recognitionResult.suggestions.map((food: any, index: number) => (
+                    <TouchableOpacity
+                      key={food.id}
+                      style={[
+                        styles.foodSuggestion,
+                        selectedFood?.id === food.id && styles.selectedFood
+                      ]}
+                      onPress={() => setSelectedFood(food)}
+                    >
+                      <Text style={styles.foodName}>{food.name}</Text>
+                      <Text style={styles.foodCalories}>{food.calories_per_100g} cal/100g</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+              
+              <Button
+                title="Retake Photo"
+                onPress={() => {
+                  setCapturedImage(null);
+                  setRecognitionResult(null);
+                  setSelectedFood(null);
+                }}
+                variant="outline"
+                style={styles.retakeButton}
+              />
+            </View>
+          ) : null}
         </Card>
 
         {selectedFood && (
@@ -585,5 +620,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#374151',
     marginBottom: 4,
+  },
+  cameraPrompt: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  cameraIcon: {
+    marginBottom: 16,
+  },
+  cameraPromptTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  cameraPromptText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  cameraActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cameraActionButton: {
+    flex: 1,
+  },
+  cancelButton: {
+    marginTop: 12,
   },
 });
