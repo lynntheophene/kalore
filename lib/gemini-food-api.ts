@@ -83,13 +83,29 @@ export const recognizeFoodFromImage = async (imageUri: string): Promise<FoodReco
 
     const parsedResult = JSON.parse(jsonMatch[0]);
     
-    // Add unique IDs if missing
+    // Validate the response structure
+    if (!parsedResult.suggestions || !Array.isArray(parsedResult.suggestions)) {
+      throw new Error('Invalid response structure');
+    }
+    
+    // Add unique IDs if missing and ensure all required fields are present
     parsedResult.suggestions = parsedResult.suggestions.map((item: any, index: number) => ({
-      ...item,
-      id: item.id || `gemini_${Date.now()}_${index}`
+      id: item.id || `gemini_${Date.now()}_${index}`,
+      name: item.name || 'Unknown Food',
+      calories_per_100g: Number(item.calories_per_100g) || 100,
+      protein_per_100g: Number(item.protein_per_100g) || 5,
+      carbs_per_100g: Number(item.carbs_per_100g) || 15,
+      fat_per_100g: Number(item.fat_per_100g) || 3,
+      fiber_per_100g: item.fiber_per_100g ? Number(item.fiber_per_100g) : null,
+      sugar_per_100g: item.sugar_per_100g ? Number(item.sugar_per_100g) : null,
+      category: item.category || 'Unknown',
+      brand: item.brand || undefined,
     }));
 
-    return parsedResult;
+    return {
+      confidence: Number(parsedResult.confidence) || 0.5,
+      suggestions: parsedResult.suggestions
+    };
   } catch (error) {
     console.error('Gemini API Error:', error);
     
@@ -107,6 +123,7 @@ export const recognizeFoodFromImage = async (imageUri: string): Promise<FoodReco
           fiber_per_100g: 3,
           sugar_per_100g: 5,
           category: 'Unknown',
+          brand: undefined,
         }
       ]
     };
@@ -154,10 +171,23 @@ export const searchFoodWithGemini = async (query: string) => {
 
     const parsedResults = JSON.parse(jsonMatch[0]);
     
-    // Add unique IDs if missing
+    // Validate and clean the results
+    if (!Array.isArray(parsedResults)) {
+      return [];
+    }
+    
+    // Add unique IDs if missing and ensure all required fields are present
     return parsedResults.map((item: any, index: number) => ({
-      ...item,
-      id: item.id || `search_${Date.now()}_${index}`
+      id: item.id || `search_${Date.now()}_${index}`,
+      name: item.name || 'Unknown Food',
+      calories_per_100g: Number(item.calories_per_100g) || 100,
+      protein_per_100g: Number(item.protein_per_100g) || 5,
+      carbs_per_100g: Number(item.carbs_per_100g) || 15,
+      fat_per_100g: Number(item.fat_per_100g) || 3,
+      fiber_per_100g: item.fiber_per_100g ? Number(item.fiber_per_100g) : null,
+      sugar_per_100g: item.sugar_per_100g ? Number(item.sugar_per_100g) : null,
+      category: item.category || 'Unknown',
+      brand: item.brand || undefined,
     }));
   } catch (error) {
     console.error('Gemini Search Error:', error);
