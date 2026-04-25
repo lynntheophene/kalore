@@ -8,9 +8,11 @@ import Card from '@/components/ui/Card';
 import { FoodEntry } from '@/types/database';
 import { TrendingUp, Target, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const { user, session } = useAuth();
+  const insets = useSafeAreaInsets();
   const [todaysEntries, setTodaysEntries] = useState<FoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,13 +69,14 @@ export default function DashboardScreen() {
   return (
     <ScrollView 
       style={styles.container}
+      contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <LinearGradient
         colors={['#2563EB', '#1D4ED8']}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Text style={styles.welcomeText}>
           Welcome back, {user?.user_metadata?.full_name || 'User'}
@@ -102,11 +105,17 @@ export default function DashboardScreen() {
           </View>
           
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+            <View style={[
+              styles.progressFill,
+              { width: `${progress}%` },
+              todaysCalories > dailyGoal && styles.progressFillOver,
+            ]} />
           </View>
           
           <Text style={styles.progressText}>
-            {Math.round(dailyGoal - todaysCalories)} calories remaining
+            {todaysCalories > dailyGoal
+              ? `${Math.round(todaysCalories - dailyGoal)} calories over goal`
+              : `${Math.round(dailyGoal - todaysCalories)} calories remaining`}
           </Text>
         </Card>
 
@@ -185,6 +194,14 @@ export default function DashboardScreen() {
               </Text>
               <Text style={styles.statLabel}>Carbs</Text>
             </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {Math.round(todaysEntries.reduce((total, entry) => 
+                  total + (entry.food_item?.fat_per_100g || 0) * entry.quantity / 100, 0
+                ))}g
+              </Text>
+              <Text style={styles.statLabel}>Fat</Text>
+            </View>
           </View>
         </Card>
       </View>
@@ -197,8 +214,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   header: {
-    paddingTop: 60,
     paddingBottom: 24,
     paddingHorizontal: 24,
   },
@@ -259,6 +278,9 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#059669',
     borderRadius: 4,
+  },
+  progressFillOver: {
+    backgroundColor: '#DC2626',
   },
   progressText: {
     fontSize: 12,

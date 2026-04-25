@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     color: '#374151',
     marginBottom: 8,
   },

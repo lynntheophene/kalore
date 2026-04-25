@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import { Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Helper function to check if a string is a valid UUID
 const isValidUUID = (str: string): boolean => {
@@ -17,6 +18,7 @@ const isValidUUID = (str: string): boolean => {
 
 export default function ManualEntryScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedFood, setSelectedFood] = useState<any>(null);
@@ -190,10 +192,10 @@ export default function ManualEntryScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <LinearGradient
         colors={['#059669', '#047857']}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Text style={styles.headerTitle}>Add Food Manually</Text>
         <Text style={styles.headerSubtitle}>Search or create custom food entries</Text>
@@ -353,18 +355,32 @@ export default function ManualEntryScreen() {
 
             <View style={styles.nutritionSummary}>
               <Text style={styles.nutritionTitle}>Nutrition Summary</Text>
-              <Text style={styles.nutritionText}>
-                Calories: {Math.round((selectedFood.calories_per_100g * parseInt(quantity || '0')) / 100)}
-              </Text>
-              <Text style={styles.nutritionText}>
-                Protein: {Math.round((selectedFood.protein_per_100g * parseInt(quantity || '0')) / 100)}g
-              </Text>
-              <Text style={styles.nutritionText}>
-                Carbs: {Math.round((selectedFood.carbs_per_100g * parseInt(quantity || '0')) / 100)}g
-              </Text>
-              <Text style={styles.nutritionText}>
-                Fat: {Math.round((selectedFood.fat_per_100g * parseInt(quantity || '0')) / 100)}g
-              </Text>
+              <View style={styles.nutritionGrid}>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {Math.round((selectedFood.calories_per_100g * parseInt(quantity || '0')) / 100)}
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Calories</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {Math.round((selectedFood.protein_per_100g * parseInt(quantity || '0')) / 100)}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Protein</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {Math.round(((selectedFood.carbs_per_100g || 0) * parseInt(quantity || '0')) / 100)}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Carbs</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {Math.round(((selectedFood.fat_per_100g || 0) * parseInt(quantity || '0')) / 100)}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Fat</Text>
+                </View>
+              </View>
             </View>
 
             <Button
@@ -386,8 +402,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   header: {
-    paddingTop: 60,
     paddingBottom: 24,
     paddingHorizontal: 24,
   },
@@ -543,14 +561,33 @@ const styles = StyleSheet.create({
   nutritionSummary: {
     backgroundColor: '#F3F4F6',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
   },
   nutritionTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  nutritionGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nutritionItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  nutritionValue: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#111827',
+  },
+  nutritionLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    marginTop: 2,
   },
   nutritionText: {
     fontSize: 14,

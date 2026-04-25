@@ -95,7 +95,7 @@ export default function SignupScreen() {
                 onPress={() => router.push('/(auth)/login')}
                 variant="outline"
                 size="large"
-                style={[styles.button, styles.loginButton]}
+                style={styles.button}
               />
             </View>
           </View>
@@ -144,9 +144,5 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
-  },
-  loginButton: {
-    backgroundColor: 'transparent',
-    borderColor: '#FFFFFF',
   },
 });

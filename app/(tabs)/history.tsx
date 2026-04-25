@@ -4,11 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/ui/Card';
 import { FoodEntry } from '@/types/database';
-import { Calendar, TrendingUp, Filter } from 'lucide-react-native';
+import { Calendar, TrendingUp, UtensilsCrossed } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,13 +88,14 @@ export default function HistoryScreen() {
   return (
     <ScrollView 
       style={styles.container}
+      contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <LinearGradient
         colors={['#059669', '#047857']}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerContent}>
           <View>
@@ -201,7 +204,7 @@ export default function HistoryScreen() {
         {Object.keys(groupedEntries).length === 0 && !loading && (
           <Card>
             <View style={styles.emptyState}>
-              <Filter size={48} color="#9CA3AF" />
+              <UtensilsCrossed size={48} color="#9CA3AF" />
               <Text style={styles.emptyTitle}>No entries found</Text>
               <Text style={styles.emptyText}>
                 Start logging your meals to see your nutrition history here.
@@ -219,8 +222,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   header: {
-    paddingTop: 60,
     paddingBottom: 24,
     paddingHorizontal: 24,
   },

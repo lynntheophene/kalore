@@ -7,11 +7,13 @@ import { getNutritionalAdvice } from '@/lib/gemini-food-api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
-import { User, Building, Target, LogOut, Settings, Brain, Lightbulb } from 'lucide-react-native';
+import { User, Building, Target, LogOut, Brain, Lightbulb } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState({
     full_name: '',
     company: '',
@@ -136,10 +138,10 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <LinearGradient
         colors={['#7C3AED', '#6D28D9']}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerContent}>
           <View style={styles.avatarContainer}>
@@ -258,7 +260,7 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <Text style={styles.sectionTitle}>Health Insights</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleStandalone]}>Health Insights</Text>
           
           <View style={styles.insightRow}>
             <Text style={styles.insightLabel}>Estimated BMR</Text>
@@ -341,7 +343,7 @@ export default function ProfileScreen() {
         </Card>
 
         <Card>
-          <Text style={styles.sectionTitle}>Account Actions</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleStandalone]}>Account Actions</Text>
           
           <Button
             title="Sign Out"
@@ -361,8 +363,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   header: {
-    paddingTop: 60,
     paddingBottom: 32,
     paddingHorizontal: 24,
   },
@@ -403,6 +407,10 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginLeft: 8,
     flex: 1,
+  },
+  sectionTitleStandalone: {
+    marginLeft: 0,
+    marginBottom: 16,
   },
   editButton: {
     paddingHorizontal: 16,

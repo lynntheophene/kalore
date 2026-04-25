@@ -8,6 +8,7 @@ interface ButtonProps {
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   style?: ViewStyle | ViewStyle[];
+  textStyle?: TextStyle;
 }
 
 export default function Button({ 
@@ -16,7 +17,8 @@ export default function Button({
   variant = 'primary', 
   size = 'medium',
   disabled = false,
-  style 
+  style,
+  textStyle,
 }: ButtonProps) {
   return (
     <TouchableOpacity
@@ -31,7 +33,7 @@ export default function Button({
       disabled={disabled}
       activeOpacity={0.8}
     >
-      <Text style={[styles.text, styles[`${variant}Text`], styles[`${size}Text`]]}>
+      <Text style={[styles.text, styles[`${variant}Text`], styles[`${size}Text`], textStyle]}>
         {title}
       </Text>
     </TouchableOpacity>
@@ -76,7 +78,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   primaryText: {
     color: '#FFFFFF',
